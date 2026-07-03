@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>איפסטר P2P נייד 🎵</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #313338;
+            --bg-secondary: #2b2d31;
+            --bg-tertiary: #1e1f22;
+            --text-normal: #dbdee1;
+            --text-muted: #949ba4;
+            --brand: #5865f2;
+            --brand-hover: #4752c4;
+            --success: #23a55a;
+            --danger: #da373c;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-primary); color: var(--text-normal);
+            display: flex; flex-direction: column; height: 100vh; height: -webkit-fill-available;
+            overflow: hidden;
+        }
+
+        /* מסך ההתחברות (מותאם לנייד) */
+        #setup-screen {
+            flex: 1; display: flex; flex-direction: column; padding: 20px;
+            justify-content: center; gap: 15px; overflow-y: auto;
+        }
+
+        /* מסך המשחק הראשי */
+        #game-screen { display: none; flex-direction: column; height: 100%; }
+
+        .header-bar {
+            background-color: var(--bg-tertiary); padding: 12px 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #3f4147;
+        }
+        h2 { margin: 0; font-size: 18px; color: #1DB954; }
+        
+        .status-badge { font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 12px; background: #111; }
+        .disconnected { color: #f23f43; }
+        .connecting { color: #f0b232; }
+        .connected { color: var(--success); }
+
+        .main-content { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+
+        .card { background: var(--bg-secondary); padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+
+        h3 { margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; color: var(--text-muted); }
+
+        input[type="text"], input[type="number"] {
+            width: 100%; background-color: var(--bg-tertiary); border: 1px solid #111;
+            color: var(--text-normal); padding: 14px; border-radius: 8px; font-size: 16px; /* 16px מונע זום אוטומטי באייפון */
+            outline: none; text-align: center; margin-bottom: 10px;
+        }
+        input:focus { border-color: var(--brand); }
+
+        .avatar-selector { display: flex; gap: 10px; justify-content: center; margin: 5px 0; }
+        .avatar-opt {
+            font-size: 26px; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center;
+            background-color: var(--bg-secondary); border-radius: 50%; cursor: pointer; border: 2px solid transparent;
+        }
+        .avatar-opt.active { border-color: var(--brand); background-color: #383a40; }
+
+        .code-box { font-size: 28px; font-weight: bold; letter-spacing: 4px; text-align: center; background: #111; padding: 12px; border-radius: 8px; color: #fff; margin: 10px 0; }
+
+        button {
+            width: 100%; background-color: var(--brand); color: white; border: none; padding: 14px;
+            border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: background 0.2s;
+        }
+        button:hover { background-color: var(--brand-hover); }
+        button:disabled { background-color: #4e5058; cursor: not-allowed; }
+
+        .btn-play { background-color: #1DB954; font-size: 18px; margin-bottom: 10px; }
+        .btn-play:hover { background-color: #1ed760; }
+
+        .leaderboard { background: var(--bg-tertiary); padding: 12px; border-radius: 8px; margin-top: auto; }
+        .player-row { display: flex; justify-content: space-between; padding: 8px 5px; border-bottom: 1px solid #333; font-size: 14px; }
+        .player-row:last-child { border: none; }
+
+        #yt-player { display: none; }
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen">
+        <div style="text-align: center;">
+            <h1 style="color: #1DB954; margin: 0 0 5px 0;">איפסטר P2P 🎵</h1>
+            <p style="color: var(--text-muted); margin: 0;">משחק ניחוש שירים רב-משתתפים</p>
+        </div>
+
+        <div class="card">
+            <h3>הפרופיל שלך</h3>
+            <input type="text" id="username-input" placeholder="הכנס שם...">
+            <div class="avatar-selector" id="avatar-picker">
+                <div class="avatar-opt active" data-avatar="🐱">🐱</div>
+                <div class="avatar-opt" data-avatar="🦊">🦊</div>
+                <div class="avatar-opt" data-avatar="🤖">🤖</div>
+                <div class="avatar-opt" data-avatar="🥷">🥷</div>
+                <div class="avatar-opt" data-avatar="👽">👽</div>
+            </div>
+        </div>
+
+        <div class="card" style="display: flex; flex-direction: column; gap: 8px;">
+            <h3>הצטרפות לחדר קים</h3>
+            <input type="number" id="room-code-input" placeholder="הכנס קוד בן 6 ספרות" pattern="\d*">
+            <button id="btn-join" style="background-color: var(--success);">הצטרף לחדר</button>
+            
+            <div style="text-align: center; color: var(--text-muted); margin: 5px 0; font-size: 12px;">או</div>
+            
+            <button id="btn-create">צור חדר חדש</button>
+        </div>
+    </div>
+
+    <div id="game-screen">
+        <div class="header-bar">
+            <div>
+                <span style="color: var(--text-muted); font-size: 12px;">חדר:</span>
+                <span id="active-room-code" style="font-weight: bold; color: #fff;">------</span>
+            </div>
+            <div id="status" class="status-badge disconnected">מנותק</div>
+        </div>
+
+        <div class="main-content">
+            <div id="host-code-card" class="card" style="display: none; text-align: center;">
+                <h3>הקוד שלכם להפצה:</h3>
+                <div id="room-code-output" class="code-box">------</div>
+                <p style="margin: 0; font-size: 12px; color: var(--text-muted);">שתפו את הקוד עם החברים</p>
+            </div>
+
+            <div class="card" style="text-align: center;">
+                <button id="btn-play-hint" class="btn-play" onclick="playLocalHint()">🎵 נגן רמז (5 שניות)</button>
+                <div id="round-info" style="font-size: 13px; color: var(--text-muted);">האזן לשיר והגש ניחוש</div>
+            </div>
+
+            <div class="card">
+                <h3>הניחוש שלך:</h3>
+                <input type="text" id="guess-artist" placeholder="שם הזמר/ת...">
+                <input type="text" id="guess-title" placeholder="שם השיר...">
+                <input type="number" id="guess-year" placeholder="שנת יציאה (למשל: 2018)..." pattern="\d*">
+                <button id="btn-submit-guess" onclick="checkAndSubmitGuess()">שלח ניחוש!</button>
+                <div id="feedback" style="margin-top: 12px; font-weight: bold; text-align: center; font-size: 14px;"></div>
+            </div>
+
+            <div class="leaderboard">
+                <h3 style="margin-bottom: 5px;">תוצאות החדר בזמן אמת:</h3>
+                <div id="leaderboard-list">
+                    <div style="color:var(--text-muted); text-align:center; font-size: 13px;">מחכה לשחקנים נוספים...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="yt-player"></div>
+
+    <script>
+        // הגדרות רשת זהות לחלוטין לקוד המקורי שלך
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+        const mqttBroker = 'wss://broker.emqx.io:8084/mqtt'; 
+        
+        const peers = {};
+        let mqttClient;
+        let currentRoomTopic = '';
+        const myClientId = 'client_' + Math.floor(Math.random() * 10000000);
+        let myUsername = 'שחקן_' + Math.floor(Math.random() * 9000 + 1000);
+        let myAvatar = '🐱';
+
+        // מאגר שירים מסונכרן (כולם יודעים מה השיר הנוכחי לפי האינדקס, הבדיקה מקומית)
+        const playlist = [
+            { id: "kJQP7kiw5Fk", artist: "דספסיטו", title: "Despacito", year: 2017 },
+            { id: "fHI8X4OXskA", artist: "אד שירן", title: "Shape of You", year: 2017 },
+            { id: "hT_nvWreIhg", artist: "עומר אדם", title: "שני משוגעים", year: 2018 },
+            { id: "papuvlVeZg8", artist: "חנן בן ארי", title: "אלוף העולם", year: 2019 }
+        ];
+        let currentSongIndex = 0;
+        let myScore = 0;
+        let roomScores = {}; 
+
+        // אלמנטים מה-DOM
+        const usernameInput = document.getElementById('username-input');
+        const avatarPicker = document.getElementById('avatar-picker');
+        const btnCreate = document.getElementById('btn-create');
+        const btnJoin = document.getElementById('btn-join');
+        const setupScreen = document.getElementById('setup-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const activeRoomCodeSpan = document.getElementById('active-room-code');
+        const hostCodeCard = document.getElementById('host-code-card');
+        const roomCodeOutput = document.getElementById('room-code-output');
+        const roomCodeInput = document.getElementById('room-code-input');
+        const statusDiv = document.getElementById('status');
+        const feedbackDiv = document.getElementById('feedback');
+        const btnSubmitGuess = document.getElementById('btn-submit-guess');
+
+        usernameInput.value = myUsername;
+        setupAvatarEvents();
+
+        function setupAvatarEvents() {
+            const opts = avatarPicker.querySelectorAll('.avatar-opt');
+            opts.forEach(opt => {
+                opt.onclick = () => {
+                    opts.forEach(o => o.classList.remove('active'));
+                    opt.classList.add('active');
+                    myAvatar = opt.getAttribute('data-avatar');
+                };
+            });
+        }
+
+        function enterGameUI(roomCode) {
+            if(usernameInput.value.trim() !== "") myUsername = usernameInput.value.trim();
+            setupScreen.style.display = 'none';
+            gameScreen.style.display = 'flex';
+            activeRoomCodeSpan.textContent = roomCode;
+            
+            roomScores[myClientId] = { name: myUsername, avatar: myAvatar, score: 0 };
+            updateLeaderboardUI();
+            loadYoutubeTrack();
+        }
+
+        // --- מערכת השמע (YouTube API) ---
+        let player;
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        document.getElementsByTagName('script')[0].parentNode.insertBefore(tag, document.getElementsByTagName('script')[0]);
+        
+        function loadYoutubeTrack() {
+            const track = playlist[currentSongIndex];
+            if (player) { player.loadVideoById(track.id); player.stopVideo(); return; }
+            player = new YT.Player('yt-player', { height: '0', width: '0', videoId: track.id });
+        }
+
+        function playLocalHint() {
+            if (!player || typeof player.playVideo !== 'function') return;
+            player.seekTo(0);
+            player.playVideo();
+            document.getElementById('btn-play-hint').disabled = true;
+            setTimeout(() => {
+                player.pauseVideo();
+                document.getElementById('btn-play-hint').disabled = false;
+            }, 5000);
+        }
+
+        // --- מנגנון הרשת הקיים (Mesh P2P באמצעות MQTT Signaling) ---
+        function connectSignaling(roomCode, callback) {
+            statusDiv.className = 'status badge connecting';
+            statusDiv.textContent = 'מתחבר...';
+            currentRoomTopic = `p2p/room/hipster/${roomCode}`;
+            
+            mqttClient = mqtt.connect(mqttBroker);
+            mqttClient.on('connect', () => {
+                mqttClient.subscribe(currentRoomTopic, () => { callback(); });
+            });
+            
+            mqttClient.on('message', async (topic, message) => {
+                try {
+                    const packet = JSON.parse(message.toString());
+                    if (packet.clientId === myClientId) return;
+                    if (packet.targetId && packet.targetId !== myClientId) return;
+
+                    if (packet.type === 'join') {
+                        if (myClientId > packet.clientId) initPeer(packet.clientId, packet.sender, true);
+                        else sendSignal('presence', null, packet.clientId);
+                    } 
+                    else if (packet.type === 'presence') {
+                        if (myClientId > packet.clientId) initPeer(packet.clientId, packet.sender, true);
+                    } 
+                    else if (packet.type === 'offer') {
+                        const pc = initPeer(packet.clientId, packet.sender, false);
+                        await pc.setRemoteDescription(new RTCSessionDescription(packet.data));
+                        const answer = await pc.createAnswer();
+                        await pc.setLocalDescription(answer);
+                        sendSignal('answer', answer, packet.clientId);
+                    } 
+                    else if (packet.type === 'answer') {
+                        if (peers[packet.clientId]) await peers[packet.clientId].peerConnection.setRemoteDescription(new RTCSessionDescription(packet.data));
+                    } 
+                    else if (packet.type === 'ice') {
+                        if (peers[packet.clientId]) try { await peers[packet.clientId].peerConnection.addIceCandidate(packet.data); } catch(e){}
+                    }
+                } catch(e) { console.error(e); }
+            });
+        }
+
+        function sendSignal(type, data, targetId = null) {
+            if (mqttClient && mqttClient.connected) {
+                mqttClient.publish(currentRoomTopic, JSON.stringify({ clientId: myClientId, sender: myUsername, type: type, data: data, targetId: targetId }));
+            }
+        }
+
+        function initPeer(targetId, targetUsername, isInitiator) {
+            if (peers[targetId]) return peers[targetId].peerConnection;
+            const pc = new RTCPeerConnection(rtcConfig);
+            peers[targetId] = { peerConnection: pc, username: targetUsername, dataChannel: null };
+
+            pc.onicecandidate = (event) => { if (event.candidate) sendSignal('ice', event.candidate, targetId); };
+            pc.onconnectionstatechange = () => { if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) handleDisconnect(targetId); };
+
+            if (isInitiator) {
+                const dc = pc.createDataChannel("gameChannel");
+                peers[targetId].dataChannel = dc;
+                setupDataChannel(dc, targetId);
+                pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => sendSignal('offer', pc.localDescription, targetId));
+            } else {
+                pc.ondatachannel = (event) => {
+                    peers[targetId].dataChannel = event.channel;
+                    setupDataChannel(event.channel, targetId);
+                };
+            }
+            return pc;
+        }
+
+        function setupDataChannel(dc, targetId) {
+            dc.onopen = () => {
+                statusDiv.className = "status-badge connected";
+                statusDiv.textContent = `מחובר (${Object.keys(peers).length + 1})`;
+                sendToPeer(dc, { type: 'PROFILE', name: myUsername, avatar: myAvatar, score: myScore, roundIndex: currentSongIndex });
+            };
+            dc.onclose = () => handleDisconnect(targetId);
+            dc.onmessage = (event) => { handleGameMessage(JSON.parse(event.data), targetId); };
+        }
+
+        function handleDisconnect(targetId) {
+            if (peers[targetId]) delete peers[targetId];
+            if (roomScores[targetId]) delete roomScores[targetId];
+            updateLeaderboardUI();
+            statusDiv.textContent = `מחובר (${Object.keys(peers).length + 1})`;
+        }
+
+        function sendToAll(data) {
+            const str = JSON.stringify(data);
+            for (let id in peers) {
+                if (peers[id].dataChannel && peers[id].dataChannel.readyState === 'open') {
+                    peers[id].dataChannel.send(str);
+                }
+            }
+        }
+
+        function sendToPeer(dc, data) {
+            if(dc && dc.readyState === 'open') dc.send(JSON.stringify(data));
+        }
+
+        // --- לוגיקת המשחק המבוזרת (Mesh P2P ללא שרת מרכזי) ---
+        function handleGameMessage(msg, targetId) {
+            if (msg.type === 'PROFILE') {
+                roomScores[targetId] = { name: msg.name, avatar: msg.avatar, score: msg.score };
+                updateLeaderboardUI();
+                // אם נכנסנו לחדר שכבר נמצא בשיר מתקדם יותר, נסתנכרן אליו
+                if (msg.roundIndex > currentSongIndex) {
+                    currentSongIndex = msg.roundIndex;
+                    loadYoutubeTrack();
+                    resetRoundUI();
+                }
+            }
+            else if (msg.type === 'SCORE_UPDATE') {
+                if (roomScores[targetId]) {
+                    roomScores[targetId].score = msg.score;
+                    updateLeaderboardUI();
+                }
+            }
+            else if (msg.type === 'NEXT_ROUND') {
+                // שחקן אחר עבר סיבוב -> כולם עוברים יחד איתו
+                if (msg.roundIndex !== currentSongIndex) {
+                    currentSongIndex = msg.roundIndex;
+                    loadYoutubeTrack();
+                    resetRoundUI();
+                    feedbackDiv.innerText = "החדר עבר לשיר הבא!";
+                    feedbackDiv.style.color = "var(--text-normal)";
+                }
+            }
+        }
+
+        // יצירת חדר חדש
+        btnCreate.addEventListener('click', () => {
+            const code = Math.floor(100000 + Math.random() * 900000).toString(); 
+            enterGameUI(code);
+            
+            hostCodeCard.style.display = 'block';
+            roomCodeOutput.textContent = code;
+
+            connectSignaling(code, () => {
+                statusDiv.className = "status-badge connected";
+                statusDiv.textContent = "מחכה לחברים...";
+                sendSignal('join', null);
+            });
+        });
+
+        // הצטרפות לחדר קיים
+        btnJoin.addEventListener('click', () => {
+            const code = roomCodeInput.value.trim();
+            if (code.length !== 6 || isNaN(code)) return alert("אנא הזן קוד חדר תקין בעל 6 ספרות.");
+            
+            enterGameUI(code);
+            connectSignaling(code, () => {
+                sendSignal('join', null);
+            });
+        });
+
+        // בדיקת הניחוש המקומית והפצת הניקוד המעודכן
+        function checkAndSubmitGuess() {
+            const artist = document.getElementById('guess-artist').value;
+            const title = document.getElementById('guess-title').value;
+            const year = document.getElementById('guess-year').value;
+
+            if(!artist && !title && !year) return;
+
+            let points = 0;
+            const currentSong = playlist[currentSongIndex];
+
+            if (clean(artist) === clean(currentSong.artist)) points++;
+            if (clean(title) === clean(currentSong.title)) points++;
+            if (parseInt(year) === currentSong.year) points++;
+
+            myScore += points;
+            roomScores[myClientId].score = myScore;
+            updateLeaderboardUI();
+
+            // חסימת הטופס זמנית לסיבוב זה
+            btnSubmitGuess.disabled = true;
+
+            if (points === 3) {
+                feedbackDiv.innerText = `🎉 מושלם! קיבלת 3 נקודות!`;
+                feedbackDiv.style.color = "var(--success)";
+            } else {
+                feedbackDiv.innerText = `קיבלת ${points} נקודות. השיר: ${currentSong.title} - ${currentSong.artist} (${currentSong.year})`;
+                feedbackDiv.style.color = "#fff";
+            }
+
+            // עדכון רשת
+            sendToAll({ type: 'SCORE_UPDATE', score: myScore });
+
+            // מעבר אוטומטי לשיר הבא אחרי 5 שניות לכל הקבוצה
+            setTimeout(() => {
+                currentSongIndex = (currentSongIndex + 1) % playlist.length;
+                loadYoutubeTrack();
+                resetRoundUI();
+                sendToAll({ type: 'NEXT_ROUND', roundIndex: currentSongIndex });
+            }, 5000);
+        }
+
+        function resetRoundUI() {
+            document.getElementById('guess-artist').value = "";
+            document.getElementById('guess-title').value = "";
+            document.getElementById('guess-year').value = "";
+            feedbackDiv.innerText = "";
+            btnSubmitGuess.disabled = false;
+            document.getElementById('round-info').innerText = `שיר מספר ${currentSongIndex + 1} מתוך ${playlist.length}`;
+        }
+
+        function updateLeaderboardUI() {
+            const container = document.getElementById('leaderboard-list');
+            container.innerHTML = "";
+            const sorted = Object.values(roomScores).sort((a,b) => b.score - a.score);
+            sorted.forEach(p => {
+                const row = document.createElement('div');
+                row.className = "player-row";
+                row.innerHTML = `<span>${p.avatar} <b>${p.name}</b></span> <span>${p.score} נק'</span>`;
+                container.appendChild(row);
+            });
+        }
+
+        function clean(t) { return t.trim().toLowerCase(); }
+    </script>
+</body>
+</html>
