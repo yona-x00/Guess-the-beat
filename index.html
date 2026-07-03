@@ -3,87 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>איפסטר P2P נייד 🎵</title>
+    <title>איפסטר Pro P2P 🎵</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --bg-primary: #313338;
-            --bg-secondary: #2b2d31;
-            --bg-tertiary: #1e1f22;
-            --text-normal: #dbdee1;
-            --text-muted: #949ba4;
-            --brand: #5865f2;
-            --brand-hover: #4752c4;
-            --success: #23a55a;
-            --danger: #da373c;
+            --bg-main: #0f1115;
+            --bg-card: #181a20;
+            --bg-input: #22252d;
+            --text-main: #f5f6f8;
+            --text-muted: #8a91a1;
+            --spotify-green: #1db954;
+            --spotify-hover: #1ed760;
+            --accent-blue: #5865f2;
+            --accent-hover: #4752c4;
+            --error: #ff4d4d;
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: system-ui, -apple-system, sans-serif; }
 
         body {
             margin: 0; padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-primary); color: var(--text-normal);
-            display: flex; flex-direction: column; height: 100vh; height: -webkit-fill-available;
-            overflow: hidden;
+            background-color: var(--bg-main); color: var(--text-main);
+            display: flex; flex-direction: column; min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        /* מסך ההתחברות (מותאם לנייד) */
+        /* מסך כניסה */
         #setup-screen {
-            flex: 1; display: flex; flex-direction: column; padding: 20px;
-            justify-content: center; gap: 15px; overflow-y: auto;
+            flex: 1; display: flex; flex-direction: column; padding: 24px;
+            justify-content: center; max-width: 480px; margin: 0 auto; width: 100%; gap: 20px;
         }
 
-        /* מסך המשחק הראשי */
-        #game-screen { display: none; flex-direction: column; height: 100%; }
+        /* מסך משחק */
+        #game-screen { display: none; flex-direction: column; width: 100%; max-width: 540px; margin: 0 auto; padding: 16px; gap: 16px; }
 
-        .header-bar {
-            background-color: var(--bg-tertiary); padding: 12px 15px;
+        .top-nav {
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #3f4147;
+            background: var(--bg-card); padding: 14px 20px; border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
-        h2 { margin: 0; font-size: 18px; color: #1DB954; }
         
-        .status-badge { font-size: 12px; font-weight: bold; padding: 4px 8px; border-radius: 12px; background: #111; }
-        .disconnected { color: #f23f43; }
-        .connecting { color: #f0b232; }
-        .connected { color: var(--success); }
+        .room-tag { font-size: 14px; font-weight: 600; color: var(--text-muted); }
+        .room-tag span { color: #fff; background: var(--accent-blue); padding: 4px 8px; border-radius: 8px; margin-right: 5px; }
 
-        .main-content { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+        .badge { font-size: 12px; font-weight: bold; padding: 6px 12px; border-radius: 20px; text-transform: uppercase; }
+        .disconnected { background: rgba(255, 77, 77, 0.15); color: var(--error); }
+        .connecting { background: rgba(240, 178, 50, 0.15); color: #f0b232; }
+        .connected { background: rgba(29, 185, 84, 0.15); color: var(--spotify-green); }
 
-        .card { background: var(--bg-secondary); padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-
-        h3 { margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; color: var(--text-muted); }
-
-        input[type="text"], input[type="number"] {
-            width: 100%; background-color: var(--bg-tertiary); border: 1px solid #111;
-            color: var(--text-normal); padding: 14px; border-radius: 8px; font-size: 16px; /* 16px מונע זום אוטומטי באייפון */
-            outline: none; text-align: center; margin-bottom: 10px;
+        .card {
+            background: var(--bg-card); padding: 24px; border-radius: 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 15px;
+            position: relative; overflow: hidden;
         }
-        input:focus { border-color: var(--brand); }
 
-        .avatar-selector { display: flex; gap: 10px; justify-content: center; margin: 5px 0; }
-        .avatar-opt {
-            font-size: 26px; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center;
-            background-color: var(--bg-secondary); border-radius: 50%; cursor: pointer; border: 2px solid transparent;
+        .card h3 { margin: 0; font-size: 15px; color: var(--text-muted); letter-spacing: 0.5px; }
+
+        input {
+            width: 100%; background-color: var(--bg-input); border: 2px solid transparent;
+            color: var(--text-main); padding: 16px; border-radius: 14px; font-size: 16px;
+            outline: none; text-align: center; transition: all 0.2s ease;
         }
-        .avatar-opt.active { border-color: var(--brand); background-color: #383a40; }
+        input:focus { border-color: var(--accent-blue); background: #282c36; }
 
-        .code-box { font-size: 28px; font-weight: bold; letter-spacing: 4px; text-align: center; background: #111; padding: 12px; border-radius: 8px; color: #fff; margin: 10px 0; }
+        .avatar-list { display: flex; gap: 12px; justify-content: center; margin: 5px 0; }
+        .avatar-btn {
+            font-size: 26px; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;
+            background-color: var(--bg-input); border-radius: 50%; cursor: pointer; border: 2px solid transparent;
+            transition: transform 0.2s;
+        }
+        .avatar-btn.active { border-color: var(--accent-blue); background-color: #2c313d; transform: scale(1.1); }
 
         button {
-            width: 100%; background-color: var(--brand); color: white; border: none; padding: 14px;
-            border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; transition: background 0.2s;
+            width: 100%; border: none; padding: 16px; border-radius: 14px;
+            font-weight: 700; font-size: 16px; cursor: pointer; transition: all 0.2s ease;
         }
-        button:hover { background-color: var(--brand-hover); }
-        button:disabled { background-color: #4e5058; cursor: not-allowed; }
+        button:active { transform: scale(0.98); }
 
-        .btn-play { background-color: #1DB954; font-size: 18px; margin-bottom: 10px; }
-        .btn-play:hover { background-color: #1ed760; }
+        .btn-primary { background-color: var(--accent-blue); color: white; }
+        .btn-primary:hover { background-color: var(--accent-hover); }
+        
+        .btn-success { background-color: var(--spotify-green); color: white; }
+        .btn-success:hover { background-color: var(--spotify-hover); }
 
-        .leaderboard { background: var(--bg-tertiary); padding: 12px; border-radius: 8px; margin-top: auto; }
-        .player-row { display: flex; justify-content: space-between; padding: 8px 5px; border-bottom: 1px solid #333; font-size: 14px; }
-        .player-row:last-child { border: none; }
+        .btn-music {
+            background: linear-gradient(135deg, #1db954, #1aa34a); color: white;
+            font-size: 18px; box-shadow: 0 4px 15px rgba(29, 185, 84, 0.3);
+        }
+
+        /* שלבי המשחק */
+        .step-container { display: none; flex-direction: column; gap: 12px; }
+        .step-container.active { display: flex; }
+
+        .revealed-box {
+            background: rgba(29, 185, 84, 0.1); border: 1px dashed var(--spotify-green);
+            padding: 12px; border-radius: 12px; text-align: center; color: var(--spotify-green);
+            font-weight: 600; font-size: 14px; margin-bottom: 5px;
+        }
+
+        /* טבלת מובילים */
+        .leaderboard { background: var(--bg-card); padding: 20px; border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+        .player-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 6px; border-bottom: 1px solid #22252d; font-size: 15px;
+        }
+        .player-item:last-child { border: none; }
+        .player-score { background: var(--bg-input); padding: 4px 10px; border-radius: 10px; font-weight: bold; color: var(--spotify-green); }
 
         #yt-player { display: none; }
     </style>
@@ -91,69 +116,76 @@
 <body>
 
     <div id="setup-screen">
-        <div style="text-align: center;">
-            <h1 style="color: #1DB954; margin: 0 0 5px 0;">איפסטר P2P 🎵</h1>
-            <p style="color: var(--text-muted); margin: 0;">משחק ניחוש שירים רב-משתתפים</p>
+        <div style="text-align: center; margin-bottom: 10px;">
+            <h1 style="font-size: 36px; margin: 0; background: linear-gradient(to left, #1db954, #5865f2); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">איפסטר Pro 🎵</h1>
+            <p style="color: var(--text-muted); margin: 8px 0 0 0; font-size: 14px;">נחשו לפי הסדר: זמר ➔ שיר ➔ שנה</p>
         </div>
 
         <div class="card">
-            <h3>הפרופיל שלך</h3>
-            <input type="text" id="username-input" placeholder="הכנס שם...">
-            <div class="avatar-selector" id="avatar-picker">
-                <div class="avatar-opt active" data-avatar="🐱">🐱</div>
-                <div class="avatar-opt" data-avatar="🦊">🦊</div>
-                <div class="avatar-opt" data-avatar="🤖">🤖</div>
-                <div class="avatar-opt" data-avatar="🥷">🥷</div>
-                <div class="avatar-opt" data-avatar="👽">👽</div>
+            <h3>הכינוי שלך</h3>
+            <input type="text" id="username-input" placeholder="הכנס שם שחקן...">
+            <div class="avatar-list" id="avatar-picker">
+                <div class="avatar-btn active" data-avatar="😎">😎</div>
+                <div class="avatar-btn" data-avatar="🎸">🎸</div>
+                <div class="avatar-btn" data-avatar="🎤">🎤</div>
+                <div class="avatar-btn" data-avatar="🎧">🎧</div>
+                <div class="avatar-btn" data-avatar="👑">👑</div>
             </div>
         </div>
 
-        <div class="card" style="display: flex; flex-direction: column; gap: 8px;">
-            <h3>הצטרפות לחדר קים</h3>
+        <div class="card">
+            <h3>קוד חדר קבוצתי</h3>
             <input type="number" id="room-code-input" placeholder="הכנס קוד בן 6 ספרות" pattern="\d*">
-            <button id="btn-join" style="background-color: var(--success);">הצטרף לחדר</button>
-            
-            <div style="text-align: center; color: var(--text-muted); margin: 5px 0; font-size: 12px;">או</div>
-            
-            <button id="btn-create">צור חדר חדש</button>
+            <button id="btn-join" class="btn-success">הצטרף לחברים</button>
+            <div style="text-align: center; color: var(--text-muted); font-size: 12px;">או פתח חדר חדש</div>
+            <button id="btn-create" class="btn-primary">צור חדר חדש</button>
         </div>
     </div>
 
     <div id="game-screen">
-        <div class="header-bar">
-            <div>
-                <span style="color: var(--text-muted); font-size: 12px;">חדר:</span>
-                <span id="active-room-code" style="font-weight: bold; color: #fff;">------</span>
-            </div>
-            <div id="status" class="status-badge disconnected">מנותק</div>
+        <div class="top-nav">
+            <div class="room-tag">חדר <span id="active-room-code">------</span></div>
+            <div id="status" class="badge disconnected">מנותק</div>
         </div>
 
-        <div class="main-content">
-            <div id="host-code-card" class="card" style="display: none; text-align: center;">
-                <h3>הקוד שלכם להפצה:</h3>
-                <div id="room-code-output" class="code-box">------</div>
-                <p style="margin: 0; font-size: 12px; color: var(--text-muted);">שתפו את הקוד עם החברים</p>
+        <div id="host-share-card" class="card" style="display: none; text-align: center; background: linear-gradient(135deg, #181a20, #1b2236);">
+            <h3>קוד חדר להזמנת חברים:</h3>
+            <div id="room-code-output" style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #fff; margin: 5px 0;">------</div>
+        </div>
+
+        <div class="card" style="text-align: center;">
+            <button id="btn-play-hint" class="btn-music" onclick="playLocalHint()">🎵 נגן שיר (10 שניות)</button>
+            <div id="round-title-display" style="font-size: 14px; color: var(--text-muted); font-weight: 500;">טוען את המשחק...</div>
+        </div>
+
+        <div class="card">
+            <div id="step-artist-block" class="step-container active">
+                <h3>שלב 1: מי הזמר / הלהקה?</h3>
+                <input type="text" id="guess-artist" placeholder="שם המבצע...">
+                <button class="btn-primary" onclick="submitStepGuess('artist')">בדוק זמר ➔</button>
             </div>
 
-            <div class="card" style="text-align: center;">
-                <button id="btn-play-hint" class="btn-play" onclick="playLocalHint()">🎵 נגן רמז (5 שניות)</button>
-                <div id="round-info" style="font-size: 13px; color: var(--text-muted);">האזן לשיר והגש ניחוש</div>
-            </div>
-
-            <div class="card">
-                <h3>הניחוש שלך:</h3>
-                <input type="text" id="guess-artist" placeholder="שם הזמר/ת...">
+            <div id="step-title-block" class="step-container">
+                <div id="revealed-artist-banner" class="revealed-box" style="display: none;"></div>
+                <h3>שלב 2: מה שם השיר?</h3>
                 <input type="text" id="guess-title" placeholder="שם השיר...">
-                <input type="number" id="guess-year" placeholder="שנת יציאה (למשל: 2018)..." pattern="\d*">
-                <button id="btn-submit-guess" onclick="checkAndSubmitGuess()">שלח ניחוש!</button>
-                <div id="feedback" style="margin-top: 12px; font-weight: bold; text-align: center; font-size: 14px;"></div>
+                <button class="btn-primary" onclick="submitStepGuess('title')">בדוק שיר ➔</button>
             </div>
 
-            <div class="leaderboard">
-                <h3 style="margin-bottom: 5px;">תוצאות החדר בזמן אמת:</h3>
-                <div id="leaderboard-list">
-                    <div style="color:var(--text-muted); text-align:center; font-size: 13px;">מחכה לשחקנים נוספים...</div>
-                </div>
+            <div id="step-year-block" class="step-container">
+                <div id="revealed-title-banner" class="revealed-box" style="display: none;"></div>
+                <h3>שלב 3: באיזו שנה יצא השיר?</h3>
+                <input type="number" id="guess-year" placeholder="שנת יציאה (למשל 2017)..." pattern="\d*">
+                <button class="btn-success" onclick="submitStepGuess('year')">בדוק שנה וסיים! 🎉</button>
+            </div>
+
+            <div id="feedback" style="text-align: center; font-weight: bold; font-size: 15px; margin-top: 5px;"></div>
+        </div>
+
+        <div class="leaderboard">
+            <h3 style="margin-bottom: 10px; font-size: 14px;">מובילים בחדר:</h3>
+            <div id="leaderboard-list">
+                <div style="color:var(--text-muted); text-align:center; font-size: 13px; padding: 10px;">ממתין לשחקנים נוספים...</div>
             </div>
         </div>
     </div>
@@ -161,8 +193,7 @@
     <div id="yt-player"></div>
 
     <script>
-        // הגדרות רשת זהות לחלוטין לקוד המקורי שלך
-        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+        const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
         const mqttBroker = 'wss://broker.emqx.io:8084/mqtt'; 
         
         const peers = {};
@@ -170,20 +201,22 @@
         let currentRoomTopic = '';
         const myClientId = 'client_' + Math.floor(Math.random() * 10000000);
         let myUsername = 'שחקן_' + Math.floor(Math.random() * 9000 + 1000);
-        let myAvatar = '🐱';
+        let myAvatar = '😎';
 
-        // מאגר שירים מסונכרן (כולם יודעים מה השיר הנוכחי לפי האינדקס, הבדיקה מקומית)
+        // מאגר השירים המובנה
         const playlist = [
             { id: "kJQP7kiw5Fk", artist: "דספסיטו", title: "Despacito", year: 2017 },
             { id: "fHI8X4OXskA", artist: "אד שירן", title: "Shape of You", year: 2017 },
             { id: "hT_nvWreIhg", artist: "עומר אדם", title: "שני משוגעים", year: 2018 },
             { id: "papuvlVeZg8", artist: "חנן בן ארי", title: "אלוף העולם", year: 2019 }
         ];
+        
         let currentSongIndex = 0;
         let myScore = 0;
         let roomScores = {}; 
+        let myCurrentStep = 'artist'; // 'artist' -> 'title' -> 'year' -> 'done'
 
-        // אלמנטים מה-DOM
+        // אלמנטים
         const usernameInput = document.getElementById('username-input');
         const avatarPicker = document.getElementById('avatar-picker');
         const btnCreate = document.getElementById('btn-create');
@@ -191,18 +224,17 @@
         const setupScreen = document.getElementById('setup-screen');
         const gameScreen = document.getElementById('game-screen');
         const activeRoomCodeSpan = document.getElementById('active-room-code');
-        const hostCodeCard = document.getElementById('host-code-card');
+        const hostShareCard = document.getElementById('host-share-card');
         const roomCodeOutput = document.getElementById('room-code-output');
         const roomCodeInput = document.getElementById('room-code-input');
         const statusDiv = document.getElementById('status');
         const feedbackDiv = document.getElementById('feedback');
-        const btnSubmitGuess = document.getElementById('btn-submit-guess');
 
         usernameInput.value = myUsername;
-        setupAvatarEvents();
+        setupAvatarSelection();
 
-        function setupAvatarEvents() {
-            const opts = avatarPicker.querySelectorAll('.avatar-opt');
+        function setupAvatarSelection() {
+            const opts = avatarPicker.querySelectorAll('.avatar-btn');
             opts.forEach(opt => {
                 opt.onclick = () => {
                     opts.forEach(o => o.classList.remove('active'));
@@ -212,7 +244,7 @@
             });
         }
 
-        function enterGameUI(roomCode) {
+        function launchGameContainer(roomCode) {
             if(usernameInput.value.trim() !== "") myUsername = usernameInput.value.trim();
             setupScreen.style.display = 'none';
             gameScreen.style.display = 'flex';
@@ -220,17 +252,18 @@
             
             roomScores[myClientId] = { name: myUsername, avatar: myAvatar, score: 0 };
             updateLeaderboardUI();
-            loadYoutubeTrack();
+            loadYoutubeEngine();
         }
 
-        // --- מערכת השמע (YouTube API) ---
+        // --- נגן השמעה של 10 שניות ---
         let player;
         const tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
         document.getElementsByTagName('script')[0].parentNode.insertBefore(tag, document.getElementsByTagName('script')[0]);
         
-        function loadYoutubeTrack() {
+        function loadYoutubeEngine() {
             const track = playlist[currentSongIndex];
+            document.getElementById('round-title-display').innerText = `שיר ${currentSongIndex + 1} מתוך ${playlist.length}`;
             if (player) { player.loadVideoById(track.id); player.stopVideo(); return; }
             player = new YT.Player('yt-player', { height: '0', width: '0', videoId: track.id });
         }
@@ -240,17 +273,19 @@
             player.seekTo(0);
             player.playVideo();
             document.getElementById('btn-play-hint').disabled = true;
+            document.getElementById('btn-play-hint').innerText = "🔊 מנגן... (10 שניות)";
             setTimeout(() => {
                 player.pauseVideo();
                 document.getElementById('btn-play-hint').disabled = false;
-            }, 5000);
+                document.getElementById('btn-play-hint').innerText = "🎵 נגן שיר (10 שניות)";
+            }, 10000); // שינוי ל-10 שניות לבקשתך
         }
 
-        // --- מנגנון הרשת הקיים (Mesh P2P באמצעות MQTT Signaling) ---
-        function connectSignaling(roomCode, callback) {
-            statusDiv.className = 'status badge connecting';
+        // --- מנגנון רשת P2P Mesh ---
+        function runSignaling(roomCode, callback) {
+            statusDiv.className = 'badge connecting';
             statusDiv.textContent = 'מתחבר...';
-            currentRoomTopic = `p2p/room/hipster/${roomCode}`;
+            currentRoomTopic = `p2p/room/hipsterpro/${roomCode}`;
             
             mqttClient = mqtt.connect(mqttBroker);
             mqttClient.on('connect', () => {
@@ -264,18 +299,18 @@
                     if (packet.targetId && packet.targetId !== myClientId) return;
 
                     if (packet.type === 'join') {
-                        if (myClientId > packet.clientId) initPeer(packet.clientId, packet.sender, true);
-                        else sendSignal('presence', null, packet.clientId);
+                        if (myClientId > packet.clientId) initPeerConnection(packet.clientId, packet.sender, true);
+                        else sendSignalPacket('presence', null, packet.clientId);
                     } 
                     else if (packet.type === 'presence') {
-                        if (myClientId > packet.clientId) initPeer(packet.clientId, packet.sender, true);
+                        if (myClientId > packet.clientId) initPeerConnection(packet.clientId, packet.sender, true);
                     } 
                     else if (packet.type === 'offer') {
-                        const pc = initPeer(packet.clientId, packet.sender, false);
+                        const pc = initPeerConnection(packet.clientId, packet.sender, false);
                         await pc.setRemoteDescription(new RTCSessionDescription(packet.data));
                         const answer = await pc.createAnswer();
                         await pc.setLocalDescription(answer);
-                        sendSignal('answer', answer, packet.clientId);
+                        sendSignalPacket('answer', answer, packet.clientId);
                     } 
                     else if (packet.type === 'answer') {
                         if (peers[packet.clientId]) await peers[packet.clientId].peerConnection.setRemoteDescription(new RTCSessionDescription(packet.data));
@@ -287,52 +322,52 @@
             });
         }
 
-        function sendSignal(type, data, targetId = null) {
+        function sendSignalPacket(type, data, targetId = null) {
             if (mqttClient && mqttClient.connected) {
                 mqttClient.publish(currentRoomTopic, JSON.stringify({ clientId: myClientId, sender: myUsername, type: type, data: data, targetId: targetId }));
             }
         }
 
-        function initPeer(targetId, targetUsername, isInitiator) {
+        function initPeerConnection(targetId, targetUsername, isInitiator) {
             if (peers[targetId]) return peers[targetId].peerConnection;
             const pc = new RTCPeerConnection(rtcConfig);
             peers[targetId] = { peerConnection: pc, username: targetUsername, dataChannel: null };
 
-            pc.onicecandidate = (event) => { if (event.candidate) sendSignal('ice', event.candidate, targetId); };
-            pc.onconnectionstatechange = () => { if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) handleDisconnect(targetId); };
+            pc.onicecandidate = (event) => { if (event.candidate) sendSignalPacket('ice', event.candidate, targetId); };
+            pc.onconnectionstatechange = () => { if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) disconnectPeer(targetId); };
 
             if (isInitiator) {
                 const dc = pc.createDataChannel("gameChannel");
                 peers[targetId].dataChannel = dc;
-                setupDataChannel(dc, targetId);
-                pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => sendSignal('offer', pc.localDescription, targetId));
+                bindChannelEvents(dc, targetId);
+                pc.createOffer().then(offer => pc.setLocalDescription(offer)).then(() => sendSignalPacket('offer', pc.localDescription, targetId));
             } else {
                 pc.ondatachannel = (event) => {
                     peers[targetId].dataChannel = event.channel;
-                    setupDataChannel(event.channel, targetId);
+                    bindChannelEvents(event.channel, targetId);
                 };
             }
             return pc;
         }
 
-        function setupDataChannel(dc, targetId) {
+        function bindChannelEvents(dc, targetId) {
             dc.onopen = () => {
-                statusDiv.className = "status-badge connected";
+                statusDiv.className = "badge connected";
                 statusDiv.textContent = `מחובר (${Object.keys(peers).length + 1})`;
-                sendToPeer(dc, { type: 'PROFILE', name: myUsername, avatar: myAvatar, score: myScore, roundIndex: currentSongIndex });
+                sendDataPacket(dc, { type: 'PROFILE', name: myUsername, avatar: myAvatar, score: myScore, roundIndex: currentSongIndex });
             };
-            dc.onclose = () => handleDisconnect(targetId);
-            dc.onmessage = (event) => { handleGameMessage(JSON.parse(event.data), targetId); };
+            dc.onclose = () => disconnectPeer(targetId);
+            dc.onmessage = (event) => { handleIncomingGameData(JSON.parse(event.data), targetId); };
         }
 
-        function handleDisconnect(targetId) {
+        function disconnectPeer(targetId) {
             if (peers[targetId]) delete peers[targetId];
             if (roomScores[targetId]) delete roomScores[targetId];
             updateLeaderboardUI();
             statusDiv.textContent = `מחובר (${Object.keys(peers).length + 1})`;
         }
 
-        function sendToAll(data) {
+        function sendToNetwork(data) {
             const str = JSON.stringify(data);
             for (let id in peers) {
                 if (peers[id].dataChannel && peers[id].dataChannel.readyState === 'open') {
@@ -341,20 +376,19 @@
             }
         }
 
-        function sendToPeer(dc, data) {
+        function sendDataPacket(dc, data) {
             if(dc && dc.readyState === 'open') dc.send(JSON.stringify(data));
         }
 
-        // --- לוגיקת המשחק המבוזרת (Mesh P2P ללא שרת מרכזי) ---
-        function handleGameMessage(msg, targetId) {
+        // --- ניהול המשחק והרעיונות החדשים (בשלבים ובתורות) ---
+        function handleIncomingGameData(msg, targetId) {
             if (msg.type === 'PROFILE') {
                 roomScores[targetId] = { name: msg.name, avatar: msg.avatar, score: msg.score };
                 updateLeaderboardUI();
-                // אם נכנסנו לחדר שכבר נמצא בשיר מתקדם יותר, נסתנכרן אליו
                 if (msg.roundIndex > currentSongIndex) {
                     currentSongIndex = msg.roundIndex;
-                    loadYoutubeTrack();
-                    resetRoundUI();
+                    loadYoutubeEngine();
+                    resetRoundState();
                 }
             }
             else if (msg.type === 'SCORE_UPDATE') {
@@ -363,94 +397,131 @@
                     updateLeaderboardUI();
                 }
             }
+            else if (msg.type === 'STEP_REVEAL') {
+                // שחקן אחר (למשל נתן) פיצח שלב!
+                // אנחנו נציג את המידע שפוצח רק למי שעדיין תקוע מאחור כדי לעזור לו להתקדם.
+                const song = playlist[currentSongIndex];
+                
+                if (msg.stepRevealed === 'artist' && myCurrentStep === 'artist') {
+                    // מישהו גילה את הזמר, ונחשף עבורנו כדי שנוכל להתקדם לשיר
+                    document.getElementById('revealed-artist-banner').innerText = `💡 חבר גילה את הזמר: ${song.artist}`;
+                    document.getElementById('revealed-artist-banner').style.display = 'block';
+                    switchStepUI('title');
+                    feedbackDiv.innerText = `${msg.byUser} גילה את הזמר! התקדמתם לשם השיר.`;
+                    feedbackDiv.style.color = "var(--accent-blue)";
+                } 
+                else if (msg.stepRevealed === 'title' && (myCurrentStep === 'artist' || myCurrentStep === 'title')) {
+                    // מישהו גילה את שם השיר
+                    document.getElementById('revealed-title-banner').innerText = `💡 חבר גילה את השיר: ${song.title}`;
+                    document.getElementById('revealed-title-banner').style.display = 'block';
+                    switchStepUI('year');
+                    feedbackDiv.innerText = `${msg.byUser} גילה את שם השיר! עברתם לשנה.`;
+                    feedbackDiv.style.color = "var(--accent-blue)";
+                }
+            }
             else if (msg.type === 'NEXT_ROUND') {
-                // שחקן אחר עבר סיבוב -> כולם עוברים יחד איתו
                 if (msg.roundIndex !== currentSongIndex) {
                     currentSongIndex = msg.roundIndex;
-                    loadYoutubeTrack();
-                    resetRoundUI();
-                    feedbackDiv.innerText = "החדר עבר לשיר הבא!";
-                    feedbackDiv.style.color = "var(--text-normal)";
+                    loadYoutubeEngine();
+                    resetRoundState();
+                    feedbackDiv.innerText = "הסיבוב הסתיים! עוברים לשיר הבא.";
+                    feedbackDiv.style.color = "var(--text-main)";
                 }
             }
         }
 
-        // יצירת חדר חדש
-        btnCreate.addEventListener('click', () => {
-            const code = Math.floor(100000 + Math.random() * 900000).toString(); 
-            enterGameUI(code);
-            
-            hostCodeCard.style.display = 'block';
-            roomCodeOutput.textContent = code;
+        // הגשת ניחוש של שלב נוכחי
+        function submitStepGuess(step) {
+            const song = playlist[currentSongIndex];
+            let isCorrect = false;
+            let earnedPoints = 0;
 
-            connectSignaling(code, () => {
-                statusDiv.className = "status-badge connected";
-                statusDiv.textContent = "מחכה לחברים...";
-                sendSignal('join', null);
-            });
-        });
-
-        // הצטרפות לחדר קיים
-        btnJoin.addEventListener('click', () => {
-            const code = roomCodeInput.value.trim();
-            if (code.length !== 6 || isNaN(code)) return alert("אנא הזן קוד חדר תקין בעל 6 ספרות.");
-            
-            enterGameUI(code);
-            connectSignaling(code, () => {
-                sendSignal('join', null);
-            });
-        });
-
-        // בדיקת הניחוש המקומית והפצת הניקוד המעודכן
-        function checkAndSubmitGuess() {
-            const artist = document.getElementById('guess-artist').value;
-            const title = document.getElementById('guess-title').value;
-            const year = document.getElementById('guess-year').value;
-
-            if(!artist && !title && !year) return;
-
-            let points = 0;
-            const currentSong = playlist[currentSongIndex];
-
-            if (clean(artist) === clean(currentSong.artist)) points++;
-            if (clean(title) === clean(currentSong.title)) points++;
-            if (parseInt(year) === currentSong.year) points++;
-
-            myScore += points;
-            roomScores[myClientId].score = myScore;
-            updateLeaderboardUI();
-
-            // חסימת הטופס זמנית לסיבוב זה
-            btnSubmitGuess.disabled = true;
-
-            if (points === 3) {
-                feedbackDiv.innerText = `🎉 מושלם! קיבלת 3 נקודות!`;
-                feedbackDiv.style.color = "var(--success)";
-            } else {
-                feedbackDiv.innerText = `קיבלת ${points} נקודות. השיר: ${currentSong.title} - ${currentSong.artist} (${currentSong.year})`;
-                feedbackDiv.style.color = "#fff";
+            if (step === 'artist') {
+                const val = document.getElementById('guess-artist').value;
+                if (clean(val) === clean(song.artist)) { isCorrect = true; earnedPoints = 1; }
+            } else if (step === 'title') {
+                const val = document.getElementById('guess-title').value;
+                if (clean(val) === clean(song.title)) { isCorrect = true; earnedPoints = 1; }
+            } else if (step === 'year') {
+                const val = parseInt(document.getElementById('guess-year').value);
+                if (val === song.year) { isCorrect = true; earnedPoints = 1; }
             }
 
-            // עדכון רשת
-            sendToAll({ type: 'SCORE_UPDATE', score: myScore });
+            if (isCorrect) {
+                myScore += earnedPoints;
+                roomScores[myClientId].score = myScore;
+                updateLeaderboardUI();
+                sendToNetwork({ type: 'SCORE_UPDATE', score: myScore });
 
-            // מעבר אוטומטי לשיר הבא אחרי 5 שניות לכל הקבוצה
-            setTimeout(() => {
-                currentSongIndex = (currentSongIndex + 1) % playlist.length;
-                loadYoutubeTrack();
-                resetRoundUI();
-                sendToAll({ type: 'NEXT_ROUND', roundIndex: currentSongIndex });
-            }, 5000);
+                feedbackDiv.innerText = "✨ צדקת! כל הכבוד.";
+                feedbackDiv.style.color = "var(--spotify-green)";
+
+                if (step === 'artist') {
+                    switchStepUI('title');
+                } else if (step === 'title') {
+                    switchStepUI('year');
+                } else if (step === 'year') {
+                    myCurrentStep = 'done';
+                    feedbackDiv.innerText = `🎉 סיימת את כל השלבים בהצלחה! השיר המלא: ${song.title} - ${song.artist} (${song.year})`;
+                    
+                    // בגלל שסיימנו, נעביר את החדר שלב אוטומטית בעוד 6 שניות
+                    setTimeout(() => {
+                        currentSongIndex = (currentSongIndex + 1) % playlist.length;
+                        loadYoutubeEngine();
+                        resetRoundState();
+                        sendToNetwork({ type: 'NEXT_ROUND', roundIndex: currentSongIndex });
+                    }, 6000);
+                }
+
+                // מודיעים לרשת שפיצחנו שלב, כדי לחשוף את המידע למי שהתקשה
+                sendToNetwork({ type: 'STEP_REVEAL', stepRevealed: step, byUser: myUsername });
+
+            } else {
+                feedbackDiv.innerText = "❌ ניחוש לא נכון, נסו שוב!";
+                feedbackDiv.style.color = "var(--error)";
+            }
         }
 
-        function resetRoundUI() {
+        function switchStepUI(nextStep) {
+            myCurrentStep = nextStep;
+            document.querySelectorAll('.step-container').forEach(el => el.classList.remove('active'));
+            const block = document.getElementById(`step-${nextStep}-block`);
+            if(block) block.classList.add('active');
+        }
+
+        function resetRoundState() {
+            myCurrentStep = 'artist';
             document.getElementById('guess-artist').value = "";
             document.getElementById('guess-title').value = "";
             document.getElementById('guess-year').value = "";
+            document.getElementById('revealed-artist-banner').style.display = 'none';
+            document.getElementById('revealed-title-banner').style.display = 'none';
             feedbackDiv.innerText = "";
-            btnSubmitGuess.disabled = false;
-            document.getElementById('round-info').innerText = `שיר מספר ${currentSongIndex + 1} מתוך ${playlist.length}`;
+            switchStepUI('artist');
         }
+
+        // כפתורי התחברות
+        btnCreate.addEventListener('click', () => {
+            const code = Math.floor(100000 + Math.random() * 900000).toString(); 
+            launchGameContainer(code);
+            hostShareCard.style.display = 'block';
+            roomCodeOutput.textContent = code;
+
+            runSignaling(code, () => {
+                statusDiv.className = "badge connected";
+                statusDiv.textContent = "מחכה לחברים...";
+                sendSignalPacket('join', null);
+            });
+        });
+
+        btnJoin.addEventListener('click', () => {
+            const code = roomCodeInput.value.trim();
+            if (code.length !== 6 || isNaN(code)) return alert("הקוד חייב להכיל 6 ספרות.");
+            launchGameContainer(code);
+            runSignaling(code, () => {
+                sendSignalPacket('join', null);
+            });
+        });
 
         function updateLeaderboardUI() {
             const container = document.getElementById('leaderboard-list');
@@ -458,8 +529,8 @@
             const sorted = Object.values(roomScores).sort((a,b) => b.score - a.score);
             sorted.forEach(p => {
                 const row = document.createElement('div');
-                row.className = "player-row";
-                row.innerHTML = `<span>${p.avatar} <b>${p.name}</b></span> <span>${p.score} נק'</span>`;
+                row.className = "player-item";
+                row.innerHTML = `<span>${p.avatar} <b>${p.name}</b></span> <span class="player-score">${p.score} נק'</span>`;
                 container.appendChild(row);
             });
         }
